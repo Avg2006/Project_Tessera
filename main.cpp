@@ -35,22 +35,35 @@ int armInput = 0;
 bool armed;
 float roll;
 float pitch;
+float rollRate;
+float pitchRate;
 float yawRate;
 
 //time_variable
-float loop_time = 0.005; //2500 micro sec i.e. 400Hz
-unsigned long lastLoopTime = 0;
+float angle_loop_time = 0.004;
+float rate_loop_time = 0.002;
+unsigned long rate_lastLoopTime = 0;
+unsigned long angle_lastLoopTime = 0;
 unsigned long CurrentTime = 0;
 
 //pid variable
-float roll_error = 0; float roll_pr_error = 0;
-float pitch_error = 0; float pitch_pr_error = 0;
-float yaw_error = 0; float yaw_pr_error = 0;
-float kp_roll = 0.0 ; float kp_pitch = 0.00 ; float kp_yaw = 0;
-float ki_roll = 0.0 ; float ki_pitch = 0.00 ; float ki_yaw = 0;
-float kd_roll = 0.0 ; float kd_pitch = 0.00 ; float kd_yaw = 0;
-float pitch_pid ; float roll_pid ; float yaw_pid ;
-float rollIntegral = 0;float pitchIntegral = 0;float yawIntegral =0;
+float roll_error_rate = 0; float roll_pr_error_rate = 0;
+float pitch_error_rate = 0; float pitch_pr_error_rate = 0;
+float yaw_error_rate = 0; float yaw_pr_error_rate = 0;
+float kp_roll_rate = 0.0 ; float kp_pitch_rate = 0.00 ; float kp_yaw_rate = 0;
+float ki_roll_rate = 0.0 ; float ki_pitch_rate = 0.00 ; float ki_yaw_rate = 0;
+float kd_roll_rate = 0.0 ; float kd_pitch_rate = 0.00 ; float kd_yaw_rate = 0;
+float pitch_pid_output ; float roll_pid_output ; float yaw_pid_output ;
+float rollIntegral_rate = 0;float pitchIntegral_rate = 0;float yawIntegral_rate =0;
+
+float roll_error_angle = 0; float roll_pr_error_angle = 0;
+float pitch_error_angle = 0; float pitch_pr_error_angle = 0;
+float yaw_error_angle = 0; float yaw_pr_error_angle = 0;
+float kp_roll_angle = 0.0 ; float kp_pitch_angle = 0.00 ; float kp_yaw_angle = 0;
+float ki_roll_angle = 0.0 ; float ki_pitch_angle = 0.00 ; float ki_yaw_angle = 0;
+float kd_roll_angle = 0.0 ; float kd_pitch_angle = 0.00 ; float kd_yaw_angle = 0;
+float pitch_pid_rate ; float roll_pid_rate ; float yaw_pid_rate ;
+float rollIntegral_angle = 0;float pitchIntegral_angle = 0;float yawIntegral_angle =0;
 
 //pid tunning variable
 String inputString = "";
@@ -60,19 +73,6 @@ String send = "";
 
 //debugging variables
 int count = 0;
-
-
-
-// 1000 mah
-
-// kp_roll = 2.0
-// ki_roll = 0.1 (to be fixed)
-// kd_roll = 0.35
-
-// 1450 mah 
-// kp_roll = 2.78
-// ki_roll = 0.09 (to be fixed)
-// kd_roll = 0.37
 
 
 MPU6050 mpu;
@@ -138,10 +138,10 @@ void mixMotorOutputs() {
   // rollInput-=1500;
   // pitchInput-=1500;
   // yawInput-=1500;
-  m1Out = throttleInput+pitch_pid-roll_pid-yaw_pid;
-  m2Out = throttleInput+pitch_pid+roll_pid+yaw_pid;
-  m3Out = throttleInput-pitch_pid+roll_pid-yaw_pid;
-  m4Out = throttleInput-pitch_pid-roll_pid+yaw_pid;
+  m1Out = throttleInput+pitch_pid_rate-roll_pid_rate-yaw_pid_rate;
+  m2Out = throttleInput+pitch_pid_rate+roll_pid_rate+yaw_pid_rate;
+  m3Out = throttleInput-pitch_pid_rate+roll_pid_rate-yaw_pid_rate;
+  m4Out = throttleInput-pitch_pid_rate-roll_pid_rate+yaw_pid_rate;
   m1Out = constrain(m1Out, 1000, 2000);
   m2Out = constrain(m2Out, 1000, 2000);
   m3Out = constrain(m3Out, 1000, 2000);
@@ -253,6 +253,8 @@ void read_sensor(float dt){
   // Kalman Filter
   roll  = kalmanX.getAngle(accRoll, gyroXrate, dt);
   pitch = kalmanY.getAngle(accPitch, gyroYrate, dt);
+  rollRate = gyroXrate;
+  pitchRate = gyroYrate;
   yawRate = gyroZrate;
 
   // // Output
@@ -261,41 +263,65 @@ void read_sensor(float dt){
   // Serial.print(" | Yaw rate: "); Serial.println(yawRate);
 
 }
-void computePID(float dt) {
+void comput_angle_PID(float dt) {
   // Roll PID (angle control)
-  roll_error = rollInput - roll;
-  rollIntegral += 0.5 * (roll_error + roll_pr_error) * dt;
-  float rollDerivative = (roll_error - roll_pr_error) / dt;
-  roll_pid = kp_roll*roll_error + ki_roll*rollIntegral +kd_roll*rollDerivative;
-  roll_pr_error = roll_error;
+  roll_error_angle = rollInput - roll;
+  rollIntegral_angle += 0.5 * (roll_error_angle + roll_pr_error_angle) * dt;
+  float rollDerivative = (roll_error_angle - roll_pr_error_angle) / dt;
+  roll_pid_rate = kp_roll_angle*roll_error_angle + ki_roll_angle*rollIntegral_angle +kd_roll_angle*rollDerivative;
+  roll_pr_error_angle = roll_error_angle;
 
   // Pitch PID (angle control)
-  pitch_error = pitchInput - pitch;
+  pitch_error_angle = pitchInput - pitch;
   // Serial.print(pitchInput);Serial.print(" :: ");Serial.println(pitch_error);
-  pitchIntegral += 0.5 * (pitch_error + pitch_pr_error) * dt;
-  float pitchDerivative = (pitch_error - pitch_pr_error) / dt;
+  pitchIntegral_angle += 0.5 * (pitch_error_angle + pitch_pr_error_angle) * dt;
+  float pitchDerivative = (pitch_error_angle - pitch_pr_error_angle) / dt;
   // Serial.println(kd_pitch*pitchDerivative);
-  pitch_pid = kp_pitch*pitch_error + ki_pitch*pitchIntegral +kd_pitch*pitchDerivative;
-  pitch_pr_error = pitch_error;
+  pitch_pid_rate = kp_pitch_angle*pitch_error_angle + ki_pitch_angle*pitchIntegral_angle +kd_pitch_angle*pitchDerivative;
+  pitch_pr_error_angle = pitch_error_angle;
 
   // Yaw PID (rate control)
-  yaw_error = yawInput - yawRate;
-  yawIntegral += 0.5 * (yaw_error + yaw_pr_error) * dt;
-  float yawDerivative = (yaw_error - yaw_pr_error) / dt;
-  yaw_pid = kp_yaw*yaw_error + ki_yaw*yawIntegral +kd_yaw*yawDerivative;
-  yaw_pr_error = yaw_error;
+  // yaw_error = yawInput - yawRate;
+  // yawIntegral += 0.5 * (yaw_error + yaw_pr_error) * dt;
+  // float yawDerivative = (yaw_error - yaw_pr_error) / dt;
+  // yaw_pid = kp_yaw*yaw_error + ki_yaw*yawIntegral +kd_yaw*yawDerivative;
+  // yaw_pr_error = yaw_error;
+}
+void comput_rate_PID(float dt) {
+  // Roll PID (rate control)
+  roll_error_rate = roll_pid_rate - rollRate;
+  rollIntegral_rate += 0.5 * (roll_error_rate + roll_pr_error_rate) * dt;
+  float rollDerivative = (roll_error_rate - roll_pr_error_rate) / dt;
+  roll_pid_output = kp_roll_rate*roll_error_rate + ki_roll_rate*rollIntegral_rate +kd_roll_rate*rollDerivative;
+  roll_pr_error_rate = roll_error_rate;
+
+  // Pitch PID (rate control)
+  pitch_error_rate = pitch_pid_rate - pitchRate;
+  // Serial.print(pitchInput);Serial.print(" :: ");Serial.println(pitch_error);
+  pitchIntegral_rate += 0.5 * (pitch_error_rate + pitch_pr_error_rate) * dt;
+  float pitchDerivative = (pitch_error_rate - pitch_pr_error_rate) / dt;
+  // Serial.println(kd_pitch*pitchDerivative);
+  pitch_pid_output = kp_pitch_rate*pitch_error_rate + ki_pitch_rate*pitchIntegral_rate +kd_pitch_rate*pitchDerivative;
+  pitch_pr_error_rate = pitch_error_rate;
+
+  // Yaw PID (rate control)
+  // yaw_error = yawInput - yawRate;
+  // yawIntegral += 0.5 * (yaw_error + yaw_pr_error) * dt;
+  // float yawDerivative = (yaw_error - yaw_pr_error) / dt;
+  // yaw_pid = kp_yaw*yaw_error + ki_yaw*yawIntegral +kd_yaw*yawDerivative;
+  // yaw_pr_error = yaw_error;
 }
 void processData(String data,char para) {
   float num = data.toFloat();
   num /= 1000;
   if (para == 'A'){
-    kp_roll = num;
+    kp_roll_rate = num;
   }
   else if (para == 'B'){
-    ki_roll = num; 
+    ki_roll_rate = num; 
   }
   else if (para == 'C'){
-    kd_roll = num; 
+    kd_roll_rate = num; 
   }
 }
 void bluetooth(){
@@ -332,23 +358,27 @@ void setup() {
 }
 void loop() {
   CurrentTime = micros();
+  read_sensor(loop_time);
   bluetooth();
-  if (CurrentTime - lastLoopTime >= (loop_time)*1000000){
+  if (CurrentTime - rate_lastLoopTime >= (rate_loop_time)*1000000){
     readPPM();
-    read_sensor(loop_time);
-    computePID(loop_time);
+    computePID(rate_loop_time);
+    if (CurrentTime - angle_lastLoopTime >= (angle_loop_time)*1000000){
+      computePID(angle_loop_time);
+      angle_lastLoopTime = micros();
+    }
     mixMotorOutputs();
     writeMotors();
-    lastLoopTime = micros();
+    rate_lastLoopTime = micros();
     if (count%200 == 0){
-      Serial.print("pitch : ");Serial.print(pitch_error);Serial.print(" | ");Serial.print(pitch_pid);
-      Serial.print(" :: ");Serial.print("roll : ");Serial.print(roll_error);Serial.print(" | ");Serial.print(roll_pid);
-      Serial.print(" :: ");Serial.print("yaw : ");Serial.print(yaw_error);Serial.print(" | ");Serial.print(yaw_pid);
+      Serial.print("pitch : ");Serial.print(pitch_error_rate);Serial.print(" | ");Serial.print(pitch_pid_output);
+      Serial.print(" :: ");Serial.print("roll : ");Serial.print(roll_error_rate);Serial.print(" | ");Serial.print(roll_pid_output);
+      Serial.print(" :: ");Serial.print("yaw : ");Serial.print(yaw_error_rate);Serial.print(" | ");Serial.print(yaw_pid_output);
       Serial.print(" :: ");Serial.print("m1out : ");Serial.print(m1Out);Serial.print(" :: ");Serial.print("m2Out : ");Serial.print(m2Out);Serial.print(" :: ");Serial.print("m3out : ");Serial.print(m3Out);Serial.print(" :: ");Serial.print("m4out : ");Serial.println(m4Out);
       // Serial.print("pitch : ");Serial.print(pitchInput);Serial.print(" | ");Serial.print("roll : ");Serial.println(rollInput);
     }
     if (count%20 == 0){
-      send = "kp :: " + String(kp_roll) + " :: ki :: " + String(ki_roll) + " :: kd :: " + String(kd_roll);
+      send = "kp :: " + String(kp_roll_rate) + " :: ki :: " + String(ki_roll_rate) + " :: kd :: " + String(kd_roll_rate);
       // Serial.println(send);
       SerialBT.println(send);
     }
