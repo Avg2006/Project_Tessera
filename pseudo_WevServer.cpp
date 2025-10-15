@@ -1,3 +1,4 @@
+
 #include <WiFi.h>
 #include <WebServer.h>
 #include <WebSocketsServer.h>
@@ -18,11 +19,11 @@ float Kp_pitch_rate = 0, Ki_pitch_rate = 0, Kd_pitch_rate = 0;
 float Kp_pitch_angle = 0, Ki_pitch_angle = 0, Kd_pitch_angle = 0;
 
 // ---------- Telemetry Variables ----------
-float roll_rate_des, roll_rate_act;
-float pitch_rate_des, pitch_rate_act;
-float roll_theta_des, roll_theta_act;
-float pitch_theta_des, pitch_theta_act;
-int M1_pwm, M2_pwm, M3_pwm, M4_pwm;
+float roll_pid_rate, rollRate;
+float pitch_pid_rate, pitchRate;
+float rollInput, roll;
+float pitchInput, pitch;
+int duty1, duty2, duty3, duty4;
 float actual_rate_loop_time = 0.0;
 float actual_angle_loop_time = 0.0;
 
@@ -194,15 +195,15 @@ ws.onmessage = (e) => {
     document.getElementById(actId).innerText = y2.toFixed(3);
   }
 
-  upd(charts.rollRate, d.roll_rate_des, d.roll_rate_act, 'curr_roll_rate_des', 'curr_roll_rate_act');
-  upd(charts.pitchRate, d.pitch_rate_des, d.pitch_rate_act, 'curr_pitch_rate_des', 'curr_pitch_rate_act');
-  upd(charts.rollTheta, d.roll_theta_des, d.roll_theta_act, 'curr_roll_theta_des', 'curr_roll_theta_act');
-  upd(charts.pitchTheta, d.pitch_theta_des, d.pitch_theta_act, 'curr_pitch_theta_des', 'curr_pitch_theta_act');
+  upd(charts.rollRate, d.roll_pid_rate, d.rollRate, 'curr_roll_rate_des', 'curr_roll_rate_act');
+  upd(charts.pitchRate, d.pitch_pid_rate, d.pitchRate, 'curr_pitch_rate_des', 'curr_pitch_rate_act');
+  upd(charts.rollTheta, d.rollInput, d.roll, 'curr_roll_theta_des', 'curr_roll_theta_act');
+  upd(charts.pitchTheta, d.pitchInput, d.pitch, 'curr_pitch_theta_des', 'curr_pitch_theta_act');
 
-  document.getElementById('M1_pwm').innerText = d.M1_pwm;
-  document.getElementById('M2_pwm').innerText = d.M2_pwm;
-  document.getElementById('M3_pwm').innerText = d.M3_pwm;
-  document.getElementById('M4_pwm').innerText = d.M4_pwm;
+  document.getElementById('M1_pwm').innerText = d.duty1;
+  document.getElementById('M2_pwm').innerText = d.duty2;
+  document.getElementById('M3_pwm').innerText = d.duty3;
+  document.getElementById('M4_pwm').innerText = d.duty4;
   document.getElementById('actual_rate_loop_time').innerText = d.actual_rate_loop_time.toFixed(3);
   document.getElementById('actual_angle_loop_time').innerText = d.actual_angle_loop_time.toFixed(3);
 };
@@ -258,35 +259,35 @@ void sendTelemetry() {
     last = millis();
     float t = millis()/1000.0;
     // Simulated telemetry values
-    roll_rate_des = 0.3 * sin(t);
-    roll_rate_act = 0.3 * sin(t + 0.1);
-    pitch_rate_des = 0.25 * cos(t);
-    pitch_rate_act = 0.25 * cos(t + 0.1);
-    roll_theta_des = 10 * sin(t/2);
-    roll_theta_act = 10 * sin(t/2 + 0.05);
-    pitch_theta_des = 8 * cos(t/2);
-    pitch_theta_act = 8 * cos(t/2 + 0.05);
-    M1_pwm = 1200 + 200*sin(t);
-    M2_pwm = 1200 + 200*cos(t);
-    M3_pwm = 1200 + 200*sin(t + 1);
-    M4_pwm = 1200 + 200*cos(t + 1);
+    roll_pid_rate = 0.3 * sin(t);
+    rollRate = 0.3 * sin(t + 0.1);
+    pitch_pid_rate = 0.25 * cos(t);
+    pitchRate = 0.25 * cos(t + 0.1);
+    rollInput = 10 * sin(t/2);
+    roll = 10 * sin(t/2 + 0.05);
+    pitchInput = 8 * cos(t/2);
+    pitch = 8 * cos(t/2 + 0.05);
+    duty1 = 1200 + 200*sin(t);
+    duty2 = 1200 + 200*cos(t);
+    duty3 = 1200 + 200*sin(t + 1);
+    duty4 = 1200 + 200*cos(t + 1);
     actual_rate_loop_time = 0.006 + 0.001 * sin(t);  // Simulated around 0.006
     actual_angle_loop_time = 0.008 + 0.001 * cos(t); // Simulated around 0.008
 
     DynamicJsonDocument doc(1024);
     doc["time"] = t;
-    doc["roll_rate_des"] = roll_rate_des;
-    doc["roll_rate_act"] = roll_rate_act;
-    doc["pitch_rate_des"] = pitch_rate_des;
-    doc["pitch_rate_act"] = pitch_rate_act;
-    doc["roll_theta_des"] = roll_theta_des;
-    doc["roll_theta_act"] = roll_theta_act;
-    doc["pitch_theta_des"] = pitch_theta_des;
-    doc["pitch_theta_act"] = pitch_theta_act;
-    doc["M1_pwm"] = M1_pwm;
-    doc["M2_pwm"] = M2_pwm;
-    doc["M3_pwm"] = M3_pwm;
-    doc["M4_pwm"] = M4_pwm;
+    doc["roll_pid_rate"] = roll_pid_rate;
+    doc["rollRate"] = rollRate;
+    doc["pitch_pid_rate"] = pitch_pid_rate;
+    doc["pitchRate"] = pitchRate;
+    doc["rollInput"] = rollInput;
+    doc["roll"] = roll;
+    doc["pitchInput"] = pitchInput;
+    doc["pitch"] = pitch;
+    doc["duty1"] = duty1;
+    doc["duty2"] = duty2;
+    doc["duty3"] = duty3;
+    doc["duty4"] = duty4;
     doc["actual_rate_loop_time"] = actual_rate_loop_time;
     doc["actual_angle_loop_time"] = actual_angle_loop_time;
 
